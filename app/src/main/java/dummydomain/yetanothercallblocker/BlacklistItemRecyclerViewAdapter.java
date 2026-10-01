@@ -11,6 +11,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.AppCompatImageButton;
 import androidx.appcompat.widget.AppCompatImageView;
 import androidx.core.util.ObjectsCompat;
 import androidx.recyclerview.selection.ItemDetailsLookup;
@@ -26,7 +27,14 @@ import dummydomain.yetanothercallblocker.data.db.BlacklistItem;
 public class BlacklistItemRecyclerViewAdapter extends GenericRecyclerViewAdapter
         <BlacklistItem, BlacklistItemRecyclerViewAdapter.ViewHolder> {
 
+    public interface ReorderListener {
+        void moveUp(BlacklistItem item);
+
+        void moveDown(BlacklistItem item);
+    }
+
     private SelectionTracker<Long> selectionTracker;
+    private ReorderListener reorderListener;
 
     public BlacklistItemRecyclerViewAdapter(
             @Nullable ListInteractionListener<BlacklistItem> listener) {
@@ -35,6 +43,10 @@ public class BlacklistItemRecyclerViewAdapter extends GenericRecyclerViewAdapter
 
     public void setSelectionTracker(SelectionTracker<Long> selectionTracker) {
         this.selectionTracker = selectionTracker;
+    }
+
+    public void setReorderListener(ReorderListener reorderListener) {
+        this.reorderListener = reorderListener;
     }
 
     public ItemKeyProvider<Long> getItemKeyProvider() {
@@ -87,6 +99,7 @@ public class BlacklistItemRecyclerViewAdapter extends GenericRecyclerViewAdapter
 
         final TextView name, pattern, stats;
         final AppCompatImageView errorIcon;
+        final AppCompatImageButton moveUp, moveDown;
 
         ItemDetailsLookup.ItemDetails<Long> itemDetails;
 
@@ -97,6 +110,25 @@ public class BlacklistItemRecyclerViewAdapter extends GenericRecyclerViewAdapter
             pattern = itemView.findViewById(R.id.pattern);
             stats = itemView.findViewById(R.id.stats);
             errorIcon = itemView.findViewById(R.id.errorIcon);
+            moveUp = itemView.findViewById(R.id.moveUp);
+            moveDown = itemView.findViewById(R.id.moveDown);
+
+            moveUp.setOnClickListener(v -> onReorderClicked(true));
+            moveDown.setOnClickListener(v -> onReorderClicked(false));
+        }
+
+        private void onReorderClicked(boolean up) {
+            if (reorderListener == null) return;
+
+            int position = getBindingAdapterPosition();
+            BlacklistItem item = position != RecyclerView.NO_POSITION ? getItem(position) : null;
+            if (item == null) return;
+
+            if (up) {
+                reorderListener.moveUp(item);
+            } else {
+                reorderListener.moveDown(item);
+            }
         }
 
         @Override
@@ -106,6 +138,8 @@ public class BlacklistItemRecyclerViewAdapter extends GenericRecyclerViewAdapter
                 pattern.setVisibility(View.INVISIBLE);
                 stats.setVisibility(View.GONE);
                 errorIcon.setVisibility(View.GONE);
+                moveUp.setVisibility(View.INVISIBLE);
+                moveDown.setVisibility(View.INVISIBLE);
                 itemView.setActivated(false);
 
                 return;
@@ -114,8 +148,14 @@ public class BlacklistItemRecyclerViewAdapter extends GenericRecyclerViewAdapter
             name.setText(item.getName());
             name.setVisibility(TextUtils.isEmpty(item.getName()) ? View.GONE : View.VISIBLE);
 
-            pattern.setText(item.getHumanReadablePattern());
+            // the action is what the reader needs first, so it colours the pattern itself
+            pattern.setText(item.getPattern());
+            pattern.setTextColor(UiUtils.getColorInt(pattern.getContext(),
+                    item.getAllow() ? R.color.ratePositive : R.color.rateNegative));
             pattern.setVisibility(View.VISIBLE);
+
+            moveUp.setVisibility(View.VISIBLE);
+            moveDown.setVisibility(View.VISIBLE);
 
             if (item.getNumberOfCalls() > 0) {
                 stats.setVisibility(View.VISIBLE);
@@ -186,6 +226,8 @@ public class BlacklistItemRecyclerViewAdapter extends GenericRecyclerViewAdapter
                                           @NonNull BlacklistItem newItem) {
             return ObjectsCompat.equals(oldItem.getPattern(), newItem.getPattern())
                     && ObjectsCompat.equals(oldItem.getName(), newItem.getName())
+                    && oldItem.getAllow() == newItem.getAllow()
+                    && oldItem.getPosition() == newItem.getPosition()
                     && oldItem.getNumberOfCalls() == newItem.getNumberOfCalls()
                     && ObjectsCompat.equals(oldItem.getLastCallDate(), newItem.getLastCallDate());
         }

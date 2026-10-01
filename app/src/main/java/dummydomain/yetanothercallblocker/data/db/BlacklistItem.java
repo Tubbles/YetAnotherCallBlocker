@@ -5,12 +5,8 @@ import org.greenrobot.greendao.annotation.Generated;
 import org.greenrobot.greendao.annotation.Id;
 import org.greenrobot.greendao.annotation.Index;
 import org.greenrobot.greendao.annotation.NotNull;
-import org.greenrobot.greendao.annotation.Transient;
 
 import java.util.Date;
-
-import static dummydomain.yetanothercallblocker.data.BlacklistUtils.patternFromHumanReadable;
-import static dummydomain.yetanothercallblocker.data.BlacklistUtils.patternToHumanReadable;
 
 @Entity
 public class BlacklistItem {
@@ -23,8 +19,6 @@ public class BlacklistItem {
     @Index
     @NotNull
     private String pattern;
-    @Transient
-    private String humanReadablePattern;
 
     @NotNull
     private Date creationDate;
@@ -36,16 +30,22 @@ public class BlacklistItem {
     private int numberOfCalls = 0;
     private Date lastCallDate;
 
+    @NotNull
+    private boolean allow = false;
+
+    @NotNull
+    private int position = 0;
+
     public BlacklistItem() {}
 
     public BlacklistItem(String name, String pattern) {
-        this(null, name, patternFromHumanReadable(pattern), new Date(), false, 0, null);
+        this(null, name, pattern, new Date(), false, 0, null, false, 0);
     }
 
-    @Generated(hash = 1295831)
+    @Generated
     public BlacklistItem(Long id, String name, @NotNull String pattern,
                          @NotNull Date creationDate, boolean invalid, int numberOfCalls,
-                         Date lastCallDate) {
+                         Date lastCallDate, boolean allow, int position) {
         this.id = id;
         this.name = name;
         this.pattern = pattern;
@@ -53,6 +53,8 @@ public class BlacklistItem {
         this.invalid = invalid;
         this.numberOfCalls = numberOfCalls;
         this.lastCallDate = lastCallDate;
+        this.allow = allow;
+        this.position = position;
     }
 
     public Long getId() {
@@ -77,14 +79,6 @@ public class BlacklistItem {
 
     public void setPattern(String pattern) {
         this.pattern = pattern;
-        this.humanReadablePattern = null;
-    }
-
-    public String getHumanReadablePattern() {
-        if (humanReadablePattern == null) {
-            humanReadablePattern = patternToHumanReadable(pattern);
-        }
-        return humanReadablePattern;
     }
 
     public Date getCreationDate() {
@@ -119,12 +113,30 @@ public class BlacklistItem {
         this.numberOfCalls = numberOfCalls;
     }
 
+    public boolean getAllow() {
+        return this.allow;
+    }
+
+    public void setAllow(boolean allow) {
+        this.allow = allow;
+    }
+
+    public int getPosition() {
+        return this.position;
+    }
+
+    public void setPosition(int position) {
+        this.position = position;
+    }
+
     @Override
     public String toString() {
         return "BlacklistItem{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", pattern='" + pattern + '\'' +
+                ", allow=" + allow +
+                ", position=" + position +
                 '}';
     }
 

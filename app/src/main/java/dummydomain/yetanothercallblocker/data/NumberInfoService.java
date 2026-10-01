@@ -113,11 +113,10 @@ public class NumberInfoService {
         }
         LOG.trace("getNumberInfo() rating={}", numberInfo.rating);
 
+        // the rules are always loaded: an allow rule has to be able to override the rating,
+        // so there is no "blocking for another reason anyway" shortcut to take here
         if (blacklistService != null && settings.getBlacklistIsNotEmpty()) {
-            // avoid loading blacklist if blocking for other reason
-            if (full || getBlockingReason(numberInfo) == null) {
-                numberInfo.blacklistItem = blacklistService.getBlacklistItemForNumber(number);
-            }
+            numberInfo.blacklistItem = blacklistService.getDecidingItem(normalizedNumber);
         }
         LOG.trace("getNumberInfo() blacklistItem={}", numberInfo.blacklistItem);
 
@@ -135,15 +134,17 @@ public class NumberInfoService {
             return NumberInfo.BlockingReason.HIDDEN_NUMBER;
         }
 
+        // the rule stack runs before the database rating, so that an allow rule wins over it
+        if (numberInfo.blacklistItem != null && settings.getBlockBlacklisted()
+                && canBlock(NumberInfo.BlockingReason.BLACKLISTED)) {
+            return numberInfo.blacklistItem.getAllow()
+                    ? null : NumberInfo.BlockingReason.BLACKLISTED;
+        }
+
         if (numberInfo.rating == NumberInfo.Rating.NEGATIVE
                 && settings.getBlockNegativeSiaNumbers()
                 && canBlock(NumberInfo.BlockingReason.SIA_RATING)) {
             return NumberInfo.BlockingReason.SIA_RATING;
-        }
-
-        if (numberInfo.blacklistItem != null && settings.getBlockBlacklisted()
-                && canBlock(NumberInfo.BlockingReason.BLACKLISTED)) {
-            return NumberInfo.BlockingReason.BLACKLISTED;
         }
 
         return null;

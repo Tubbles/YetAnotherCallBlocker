@@ -180,8 +180,8 @@
     </plurals>
     <string name="selected_value_nothing">&lt;nothing&gt;</string>
 
-    <string name="open_blacklist_activity">Blacklist</string>
-    <string name="title_blacklist_activity">Blacklist</string>
+    <string name="open_blacklist_activity">Rules</string>
+    <string name="title_blacklist_activity">Rules</string>
     <plurals name="blacklist_item_stats">
         <item quantity="one">Called %2$s</item>
         <item quantity="other">%1$d calls, last: %2$s</item>
@@ -194,13 +194,26 @@
     <string name="blacklist_delete_confirmation">Delete the selected items?</string>
     <string name="blacklist_export">Export</string>
     <string name="blacklist_import">Import</string>
-    <string name="title_add_blacklist_item_activity">Add number</string>
-    <string name="title_edit_blacklist_item_activity">Edit number</string>
+    <string name="title_add_blacklist_item_activity">Add rule</string>
+    <string name="title_edit_blacklist_item_activity">Edit rule</string>
     <string name="edit_blacklist_item_name">Name</string>
     <string name="edit_blacklist_item_number_pattern">Number pattern</string>
     <string name="number_pattern_incorrect">Incorrect pattern</string>
     <string name="number_pattern_empty">Empty pattern</string>
     <string name="number_pattern_hint">Enter the number in +COUNTRY-NUMBER format (as Android would show in your dialer). Use \"*\" as a wildcard for zero or more digits, and \"#\" for exactly one digit.</string>
+
+    <string name="rules">Rules</string>
+    <string name="block_rules">Apply the rules</string>
+    <string name="block_rules_summary">Block or allow calls by the rule list. Rules run top to bottom against the number in international form, the last match decides.</string>
+    <string name="edit_rule_allow">Allow instead of block</string>
+    <string name="edit_rule_pattern">Regular expression</string>
+    <string name="rule_pattern_hint">Matched against the whole number in international form, like +46701234567. Example: block .* then allow \\+46.* blocks every foreign number.</string>
+    <string name="edit_rule_test_number">Test number (optional)</string>
+    <string name="rule_test_matches">Matches %s</string>
+    <string name="rule_test_no_match">Does not match %s</string>
+    <string name="rule_matched">Rule: %s</string>
+    <string name="rule_move_up">Move up</string>
+    <string name="rule_move_down">Move down</string>
     <string name="info_icon_description">Info</string>
     <string name="contacts_are_not_blocked_blacklist_notice">Calls from contacts are never blocked (even on pattern match)</string>
     <string name="contacts_are_not_blocked_not_enabled">Calls from contacts may be blocked because the \"Use contacts\" option is not enabled!</string>

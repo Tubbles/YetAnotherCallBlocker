@@ -26,12 +26,33 @@ public class BlacklistService {
         this.blacklistDao = blacklistDao;
     }
 
-    public BlacklistItem getBlacklistItemForNumber(String number) {
-        if (TextUtils.isEmpty(number)) return null;
+    /**
+     * Runs the rules against the number in international form and returns the one that decides,
+     * which is the LAST rule that matches (so a later allow rule overrides an earlier block one).
+     *
+     * @return the deciding rule, or null if no rule matches
+     */
+    public BlacklistItem getDecidingItem(String normalizedNumber) {
+        if (TextUtils.isEmpty(normalizedNumber)) return null;
 
-        number = BlacklistUtils.cleanNumber(number);
+        BlacklistItem decidingItem = null;
+        for (BlacklistItem item : blacklistDao.loadValidInOrder()) {
+            if (BlacklistUtils.matches(item.getPattern(), normalizedNumber)) {
+                decidingItem = item;
+            }
+        }
 
-        return blacklistDao.getFirstMatch(number);
+        return decidingItem;
+    }
+
+    public int nextPosition() {
+        return blacklistDao.getNextPosition();
+    }
+
+    public void swapPositions(BlacklistItem firstItem, BlacklistItem secondItem) {
+        blacklistDao.swapPositions(firstItem, secondItem);
+
+        postEvent(new BlacklistChangedEvent());
     }
 
     public void save(BlacklistItem blacklistItem) {

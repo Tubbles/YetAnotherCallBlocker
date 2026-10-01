@@ -72,4 +72,21 @@
     <string name="sia_category_nuisance">Störande</string>
     <string name="sia_category_safe_personal">Trygg personlig</string>
     <string name="sia_category_safe_company">Säkert sällskap</string>
+
+    <string name="open_blacklist_activity">Regler</string>
+    <string name="title_blacklist_activity">Regler</string>
+    <string name="title_add_blacklist_item_activity">Lägg till regel</string>
+    <string name="title_edit_blacklist_item_activity">Redigera regel</string>
+    <string name="rules">Regler</string>
+    <string name="block_rules">Tillämpa reglerna</string>
+    <string name="block_rules_summary">Blockera eller tillåt samtal enligt regellistan. Reglerna körs uppifrån och ned mot numret i internationell form, den sista träffen avgör.</string>
+    <string name="edit_rule_allow">Tillåt i stället för att blockera</string>
+    <string name="edit_rule_pattern">Reguljärt uttryck</string>
+    <string name="rule_pattern_hint">Matchas mot hela numret i internationell form, till exempel +46701234567. Exempel: blockera .* följt av tillåt \\+46.* blockerar alla utländska nummer.</string>
+    <string name="edit_rule_test_number">Testnummer (valfritt)</string>
+    <string name="rule_test_matches">Matchar %s</string>
+    <string name="rule_test_no_match">Matchar inte %s</string>
+    <string name="rule_matched">Regel: %s</string>
+    <string name="rule_move_up">Flytta upp</string>
+    <string name="rule_move_down">Flytta ned</string>
 </resources>

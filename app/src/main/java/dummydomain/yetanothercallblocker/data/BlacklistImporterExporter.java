@@ -27,10 +27,9 @@ import java.util.List;
 import dummydomain.yetanothercallblocker.data.db.BlacklistDao;
 import dummydomain.yetanothercallblocker.data.db.BlacklistItem;
 
-import static dummydomain.yetanothercallblocker.data.BlacklistUtils.cleanPattern;
 import static dummydomain.yetanothercallblocker.data.BlacklistUtils.isValidPattern;
-import static dummydomain.yetanothercallblocker.data.BlacklistUtils.patternFromHumanReadable;
-import static dummydomain.yetanothercallblocker.data.BlacklistUtils.patternToHumanReadable;
+import static dummydomain.yetanothercallblocker.data.BlacklistUtils.legacyHumanReadableToPattern;
+import static dummydomain.yetanothercallblocker.data.BlacklistUtils.legacyPatternToRegex;
 
 public class BlacklistImporterExporter {
 
@@ -39,6 +38,7 @@ public class BlacklistImporterExporter {
     private static final String HEADER_ID = "ID";
     private static final String HEADER_NAME = "name";
     private static final String HEADER_PATTERN = "pattern";
+    private static final String HEADER_ALLOW = "allow";
 
     private static final int INDEX_ID = 0;
     private static final int INDEX_NAME = 1;
@@ -46,17 +46,20 @@ public class BlacklistImporterExporter {
     private static final int INDEX_CREATION_DATE = 3;
     private static final int INDEX_NUMBER_OF_CALLS = 4;
     private static final int INDEX_LAST_CALL_DATE = 5;
+    private static final int INDEX_ALLOW = 6;
+    private static final int INDEX_POSITION = 7;
 
     public boolean writeBackup(Iterable<BlacklistItem> blacklistItems, Appendable out) {
         try (CSVPrinter printer = CSVFormat.DEFAULT.print(out)) {
             printer.printRecord(HEADER_ID, HEADER_NAME, HEADER_PATTERN,
-                    "creationTimestamp", "numberOfCalls", "lastCallTimestamp");
+                    "creationTimestamp", "numberOfCalls", "lastCallTimestamp",
+                    HEADER_ALLOW, "position");
 
             for (BlacklistItem item : blacklistItems) {
-                printer.printRecord(item.getId(), item.getName(),
-                        patternToHumanReadable(item.getPattern()),
+                printer.printRecord(item.getId(), item.getName(), item.getPattern(),
                         item.getCreationDate().getTime(), item.getNumberOfCalls(),
-                        item.getLastCallDate() != null ? item.getLastCallDate().getTime() : "");
+                        item.getLastCallDate() != null ? item.getLastCallDate().getTime() : "",
+                        item.getAllow(), item.getPosition());
             }
         } catch (IOException e) {
             LOG.warn("write()", e);
@@ -171,7 +174,7 @@ public class BlacklistImporterExporter {
                         Long.parseLong(get(record, INDEX_ID));
                     }
 
-                    if (!isValidPattern(cleanPattern(patternFromHumanReadable(
+                    if (!isValidPattern(legacyPatternToRegex(legacyHumanReadableToPattern(
                             get(record, INDEX_PATTERN))))) {
                         return false;
                     }
@@ -220,6 +223,10 @@ public class BlacklistImporterExporter {
             List<BlacklistItem> blacklistItems = new ArrayList<>();
 
             boolean first = true;
+            // a backup without the allow column predates the rules, so its patterns
+            // are still in the old human readable LIKE form and every item blocks
+            boolean legacyPatterns = true;
+            int rowIndex = 0;
 
             for (CSVRecord record : parser) {
                 if (first) {
@@ -229,11 +236,14 @@ public class BlacklistImporterExporter {
                     LOG.debug("readYacbBackup() found header={}", foundHeader);
 
                     if (foundHeader) {
+                        legacyPatterns = !HEADER_ALLOW.equals(get(record, INDEX_ALLOW));
+                        LOG.debug("readYacbBackup() legacyPatterns={}", legacyPatterns);
                         continue;
                     }
                 }
 
                 BlacklistItem item = new BlacklistItem();
+                item.setPosition(rowIndex++);
 
                 boolean enough = false;
 
@@ -244,8 +254,10 @@ public class BlacklistImporterExporter {
 
                     item.setName(record.get(INDEX_NAME));
 
-                    item.setPattern(cleanPattern(patternFromHumanReadable(
-                            record.get(INDEX_PATTERN))));
+                    String pattern = record.get(INDEX_PATTERN);
+                    item.setPattern(legacyPatterns
+                            ? legacyPatternToRegex(legacyHumanReadableToPattern(pattern))
+                            : pattern);
 
                     enough = true;
 
@@ -262,6 +274,14 @@ public class BlacklistImporterExporter {
                     if (!TextUtils.isEmpty(get(record, INDEX_LAST_CALL_DATE))) {
                         item.setLastCallDate(new Date(Long.parseLong(
                                 get(record, INDEX_LAST_CALL_DATE))));
+                    }
+
+                    if (!TextUtils.isEmpty(get(record, INDEX_ALLOW))) {
+                        item.setAllow(Boolean.parseBoolean(get(record, INDEX_ALLOW)));
+                    }
+
+                    if (!TextUtils.isEmpty(get(record, INDEX_POSITION))) {
+                        item.setPosition(Integer.parseInt(get(record, INDEX_POSITION)));
                     }
                 } catch (Exception e) {
                     LOG.warn("readYacbBackup() error parsing item", e);
@@ -320,7 +340,8 @@ public class BlacklistImporterExporter {
                 String name = line.substring(delimiterIndex + delimiter.length());
 
                 BlacklistItem item = new BlacklistItem(name,
-                        cleanPattern(patternFromHumanReadable(pattern)));
+                        legacyPatternToRegex(legacyHumanReadableToPattern(pattern)));
+                item.setPosition(blacklistItems.size());
                 blacklistItems.add(sanitize(item));
             }
 

@@ -17,6 +17,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.view.ActionMode;
+import androidx.core.util.ObjectsCompat;
 import androidx.lifecycle.LiveData;
 import androidx.paging.LivePagedListBuilder;
 import androidx.paging.PagedList;
@@ -33,6 +34,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 
 import dummydomain.yetanothercallblocker.data.BlacklistImporterExporter;
@@ -78,6 +80,18 @@ public class BlacklistActivity extends AppCompatActivity {
         setContentView(R.layout.activity_blacklist);
 
         blacklistAdapter = new BlacklistItemRecyclerViewAdapter(this::onItemClicked);
+        blacklistAdapter.setReorderListener(
+                new BlacklistItemRecyclerViewAdapter.ReorderListener() {
+                    @Override
+                    public void moveUp(BlacklistItem item) {
+                        moveItem(item, -1);
+                    }
+
+                    @Override
+                    public void moveDown(BlacklistItem item) {
+                        moveItem(item, 1);
+                    }
+                });
         recyclerView = findViewById(R.id.blacklistItemsList);
         recyclerView.setAdapter(blacklistAdapter);
         recyclerView.addItemDecoration(new CustomVerticalDivider(this));
@@ -302,6 +316,41 @@ public class BlacklistActivity extends AppCompatActivity {
 
     private void onItemClicked(BlacklistItem blacklistItem) {
         startActivity(EditBlacklistItemActivity.getIntent(this, blacklistItem.getId()));
+    }
+
+    /**
+     * Swaps the rule with its neighbour in the list as it is shown,
+     * which is the order the rules are evaluated in.
+     *
+     * @param offset -1 to move the rule up, 1 to move it down
+     */
+    private void moveItem(BlacklistItem item, int offset) {
+        PagedList<BlacklistItem> currentList = blacklistAdapter.getCurrentList();
+        if (currentList == null) return;
+
+        int index = indexOf(currentList, item);
+        if (index == -1) return;
+
+        int neighbourIndex = index + offset;
+        if (neighbourIndex < 0 || neighbourIndex >= currentList.size()) return;
+
+        BlacklistItem neighbour = currentList.get(neighbourIndex);
+        if (neighbour == null) { // not loaded yet
+            LOG.debug("moveItem() no neighbour at index={}", neighbourIndex);
+            return;
+        }
+
+        blacklistService.swapPositions(item, neighbour);
+    }
+
+    private static int indexOf(List<BlacklistItem> items, BlacklistItem item) {
+        for (int index = 0; index < items.size(); index++) {
+            BlacklistItem candidate = items.get(index);
+            if (candidate != null && ObjectsCompat.equals(candidate.getId(), item.getId())) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     public void onExportBlacklistClicked(MenuItem item) {

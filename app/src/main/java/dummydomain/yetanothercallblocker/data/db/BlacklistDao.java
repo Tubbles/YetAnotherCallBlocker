@@ -1,11 +1,8 @@
 package dummydomain.yetanothercallblocker.data.db;
 
-import org.greenrobot.greendao.Property;
-import org.greenrobot.greendao.internal.SqlUtils;
 import org.greenrobot.greendao.query.CloseableListIterator;
 import org.greenrobot.greendao.query.Query;
 import org.greenrobot.greendao.query.QueryBuilder;
-import org.greenrobot.greendao.query.WhereCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,10 +36,8 @@ public class BlacklistDao {
 
     public QueryBuilder<BlacklistItem> getDefaultQueryBuilder() {
         return getBlacklistItemDao().queryBuilder()
-                .orderRaw("T.'" + BlacklistItemDao.Properties.Name.columnName + "' IS NULL" +
-                        " OR T.'" + BlacklistItemDao.Properties.Name.columnName + "' = ''")
-                .orderAsc(BlacklistItemDao.Properties.Name)
-                .orderAsc(BlacklistItemDao.Properties.Pattern);
+                .orderAsc(BlacklistItemDao.Properties.Position)
+                .orderAsc(BlacklistItemDao.Properties.CreationDate);
     }
 
     public <T extends Collection<BlacklistItem>> T detach(T items) {
@@ -87,15 +82,33 @@ public class BlacklistDao {
                 .where(BlacklistItemDao.Properties.Invalid.notEq(true)).count();
     }
 
-    public BlacklistItem getFirstMatch(String number) {
-        return first(getMatchesQueryBuilder(number));
+    /**
+     * Regular expressions cannot be evaluated by SQLite, so the rules are matched in memory.
+     * The list is small (a few dozen rules at most) and it is loaded once per screened call.
+     *
+     * @return all usable rules in the order they are evaluated in
+     */
+    public List<BlacklistItem> loadValidInOrder() {
+        return getBlacklistItemDao().queryBuilder()
+                .where(BlacklistItemDao.Properties.Invalid.notEq(true))
+                .orderAsc(BlacklistItemDao.Properties.Position)
+                .orderAsc(BlacklistItemDao.Properties.CreationDate)
+                .list();
     }
 
-    private QueryBuilder<BlacklistItem> getMatchesQueryBuilder(String number) {
-        return getBlacklistItemDao().queryBuilder()
-                .where(BlacklistItemDao.Properties.Invalid.notEq(true),
-                        new InverseLikeCondition(BlacklistItemDao.Properties.Pattern, number))
-                .orderAsc(BlacklistItemDao.Properties.CreationDate);
+    public int getNextPosition() {
+        BlacklistItem lastItem = first(getBlacklistItemDao().queryBuilder()
+                .orderDesc(BlacklistItemDao.Properties.Position));
+
+        return lastItem != null ? lastItem.getPosition() + 1 : 0;
+    }
+
+    public void swapPositions(BlacklistItem firstItem, BlacklistItem secondItem) {
+        int firstPosition = firstItem.getPosition();
+        firstItem.setPosition(secondItem.getPosition());
+        secondItem.setPosition(firstPosition);
+
+        getBlacklistItemDao().updateInTx(firstItem, secondItem);
     }
 
     private <T> T first(QueryBuilder<T> queryBuilder) {
@@ -113,18 +126,6 @@ public class BlacklistDao {
 
     private BlacklistItemDao getBlacklistItemDao() {
         return daoSessionProvider.getDaoSession().getBlacklistItemDao();
-    }
-
-    private static class InverseLikeCondition extends WhereCondition.PropertyCondition {
-        InverseLikeCondition(Property property, String value) {
-            super(property, " ? LIKE ", value);
-        }
-
-        @Override
-        public void appendTo(StringBuilder builder, String tableAlias) {
-            builder.append(op);
-            SqlUtils.appendProperty(builder, tableAlias, property);
-        }
     }
 
 }

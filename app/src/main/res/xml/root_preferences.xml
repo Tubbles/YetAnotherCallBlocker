@@ -44,8 +44,8 @@
         <SwitchPreferenceCompat
             app:defaultValue="true"
             app:key="blockBlacklisted"
-            app:summary="@string/block_blacklisted_summary"
-            app:title="@string/block_blacklisted" />
+            app:summary="@string/block_rules_summary"
+            app:title="@string/block_rules" />
         <SwitchPreferenceCompat
             app:key="useCallScreeningService"
             app:persistent="false"

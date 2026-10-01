@@ -251,9 +251,10 @@ public class NotificationHelper {
 
     private static String getBlacklistDescriptionPart(Context context, NumberInfo numberInfo) {
         if (numberInfo.blacklistItem != null && numberInfo.contactItem == null) {
+            // an unnamed rule is identified by its pattern, which is all the user gave it
             String name = numberInfo.blacklistItem.getName();
-            return context.getString(R.string.info_in_blacklist)
-                    + (!TextUtils.isEmpty(name) ? " (" + name + ")" : "");
+            return context.getString(R.string.rule_matched, !TextUtils.isEmpty(name)
+                    ? name : numberInfo.blacklistItem.getPattern());
         }
 
         return null;

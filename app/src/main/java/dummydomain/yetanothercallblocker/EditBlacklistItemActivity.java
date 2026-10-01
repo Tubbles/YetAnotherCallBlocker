@@ -15,6 +15,7 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -28,12 +29,10 @@ import java.util.Objects;
 
 import dummydomain.yetanothercallblocker.data.BlacklistService;
 import dummydomain.yetanothercallblocker.data.BlacklistUtils;
+import dummydomain.yetanothercallblocker.data.NumberUtils;
 import dummydomain.yetanothercallblocker.data.YacbHolder;
 import dummydomain.yetanothercallblocker.data.db.BlacklistDao;
 import dummydomain.yetanothercallblocker.data.db.BlacklistItem;
-
-import static dummydomain.yetanothercallblocker.data.BlacklistUtils.cleanPattern;
-import static dummydomain.yetanothercallblocker.data.BlacklistUtils.patternFromHumanReadable;
 
 public class EditBlacklistItemActivity extends AppCompatActivity {
 
@@ -47,7 +46,10 @@ public class EditBlacklistItemActivity extends AppCompatActivity {
     private BlacklistService blacklistService = YacbHolder.getBlacklistService();
 
     private TextInputLayout nameTextField;
+    private SwitchCompat allowSwitch;
     private TextInputLayout patternTextField;
+    private TextInputLayout testNumberTextField;
+    private TextView testResultTextView;
 
     private BlacklistItem blacklistItem;
 
@@ -75,7 +77,10 @@ public class EditBlacklistItemActivity extends AppCompatActivity {
         }
 
         nameTextField = findViewById(R.id.nameTextField);
+        allowSwitch = findViewById(R.id.allowSwitch);
         patternTextField = findViewById(R.id.patternTextField);
+        testNumberTextField = findViewById(R.id.testNumberTextField);
+        testResultTextView = findViewById(R.id.testResult);
 
         EditText patternEditText = Objects.requireNonNull(patternTextField.getEditText());
         patternEditText.addTextChangedListener(new TextWatcher() {
@@ -88,6 +93,7 @@ public class EditBlacklistItemActivity extends AppCompatActivity {
             @Override
             public void afterTextChanged(Editable s) {
                 validate();
+                updateTestResult();
             }
         });
         patternEditText.setOnEditorActionListener((v, actionId, event) -> {
@@ -98,6 +104,20 @@ public class EditBlacklistItemActivity extends AppCompatActivity {
                     return false;
                 }
         );
+
+        EditText testNumberEditText = Objects.requireNonNull(testNumberTextField.getEditText());
+        testNumberEditText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                updateTestResult();
+            }
+        });
 
         long itemIdFromParams = getIntent().getLongExtra(PARAM_ITEM_ID, -1);
         if (itemIdFromParams != -1) {
@@ -114,22 +134,26 @@ public class EditBlacklistItemActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             String name;
             String pattern;
+            boolean allow;
 
             if (blacklistItem != null) {
                 name = blacklistItem.getName();
                 pattern = blacklistItem.getPattern();
+                allow = blacklistItem.getAllow();
             } else {
                 name = getIntent().getStringExtra(PARAM_NAME);
-                pattern = getIntent().getStringExtra(PARAM_NUMBER_PATTERN);
-            }
-
-            if (!TextUtils.isEmpty(pattern)) {
-                pattern = BlacklistUtils.patternToHumanReadable(pattern);
+                // callers that prefill the field pass a plain number, not a regular expression
+                pattern = BlacklistUtils
+                        .legacyPatternToRegex(getIntent().getStringExtra(PARAM_NUMBER_PATTERN));
+                allow = false;
             }
 
             setString(nameTextField, name);
+            allowSwitch.setChecked(allow);
             setString(patternTextField, pattern);
         }
+
+        updateTestResult();
 
         TextView statsTextView = findViewById(R.id.stats);
         if (blacklistItem != null) {
@@ -192,24 +216,40 @@ public class EditBlacklistItemActivity extends AppCompatActivity {
 
     private boolean validate() {
         String pattern = getString(patternTextField);
-        boolean valid = true;
         boolean empty = TextUtils.isEmpty(pattern);
 
+        String error = null;
         if (blacklistItem != null || !empty) {
-            pattern = cleanPattern(patternFromHumanReadable(pattern));
-            valid = BlacklistUtils.isValidPattern(pattern);
+            error = empty ? getString(R.string.number_pattern_empty)
+                    : BlacklistUtils.patternError(pattern);
         }
 
-        patternTextField.setError(!valid ? getString(
-                empty ? R.string.number_pattern_empty : R.string.number_pattern_incorrect)
-                : null);
+        patternTextField.setError(error);
 
-        return valid;
+        return error == null;
+    }
+
+    private void updateTestResult() {
+        String testNumber = getString(testNumberTextField);
+        if (TextUtils.isEmpty(testNumber)) {
+            testResultTextView.setVisibility(View.GONE);
+            return;
+        }
+
+        String normalizedNumber = NumberUtils.normalizeNumber(
+                testNumber, App.getSettings().getCachedAutoDetectedCountryCode());
+
+        boolean matches = BlacklistUtils.matches(getString(patternTextField), normalizedNumber);
+
+        testResultTextView.setText(getString(matches
+                ? R.string.rule_test_matches : R.string.rule_test_no_match, normalizedNumber));
+        testResultTextView.setVisibility(View.VISIBLE);
     }
 
     private void save() {
         String name = getString(nameTextField);
-        String pattern = cleanPattern(patternFromHumanReadable(getString(patternTextField)));
+        String pattern = getString(patternTextField);
+        boolean allow = allowSwitch.isChecked();
         boolean invalid = !BlacklistUtils.isValidPattern(pattern);
 
         if (blacklistItem != null) {
@@ -220,6 +260,10 @@ public class EditBlacklistItemActivity extends AppCompatActivity {
             }
             if (!TextUtils.equals(pattern, blacklistItem.getPattern())) {
                 blacklistItem.setPattern(pattern);
+                changed = true;
+            }
+            if (allow != blacklistItem.getAllow()) {
+                blacklistItem.setAllow(allow);
                 changed = true;
             }
             if (invalid != blacklistItem.getInvalid()) {
@@ -242,6 +286,8 @@ public class EditBlacklistItemActivity extends AppCompatActivity {
             }
 
             BlacklistItem blacklistItem = new BlacklistItem(name, pattern);
+            blacklistItem.setAllow(allow);
+            blacklistItem.setPosition(blacklistService.nextPosition());
             blacklistService.save(blacklistItem);
         }
     }
