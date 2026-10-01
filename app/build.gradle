@@ -4,10 +4,15 @@ apply plugin: 'org.greenrobot.greendao'
 android {
     compileSdkVersion 30
     defaultConfig {
-        applicationId "dummydomain.yetanothercallblocker"
+        // YACB T installs alongside the original; the Java package stays
+        // dummydomain.yetanothercallblocker, every package reference in the
+        // code goes through BuildConfig.APPLICATION_ID or getPackageName().
+        applicationId "com.tubbles.yacb"
         minSdkVersion 14
         targetSdkVersion 30
-        versionCode 5170
+        // CI builds get a monotonically increasing versionCode (base * 1000 +
+        // workflow run number) so every artifact can update the previous one.
+        versionCode System.getenv("PINETIME_CI_VERSION_CODE") != null ? 5170 * 1000 + Integer.parseInt(System.getenv("PINETIME_CI_VERSION_CODE")) : 5170
         versionName "0.5.17"
 
         javaCompileOptions {
@@ -16,7 +21,26 @@ android {
             }
         }
     }
+    signingConfigs {
+        // CI debug signing with an explicit committed keystore, the same
+        // arrangement as the other apps in pinetime-hacks: a fresh runner
+        // would otherwise generate a throwaway key per build and Android
+        // would refuse to update the previous install.
+        if (System.getenv("PINETIME_DEBUG_KEYSTORE") != null) {
+            ciDebug {
+                storeFile file(System.getenv("PINETIME_DEBUG_KEYSTORE"))
+                storePassword "android"
+                keyAlias "androiddebugkey"
+                keyPassword "android"
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (System.getenv("PINETIME_DEBUG_KEYSTORE") != null) {
+                signingConfig signingConfigs.ciDebug
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
